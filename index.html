@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoWrite — Content Generator</title>
+<!-- styles tetap sama (saya skip biar tidak terlalu panjang) -->
+<style>
+  /* ... (semua CSS kamu tetap sama, copy-paste saja dari kode asli) ... */
+</style>
+</head>
+<body>
+<!-- HTML body tetap sama persis sampai sebelum <script> -->
+
+<script>
+let currentMode = 'short';
+let currentPlatform = 'both';
+let currentTone = 'analyst';
+let currentTab = 0;
+let generatedOutputs = [];
+
+// GANTI INI DENGAN URL CLOUDFLARE WORKER KAMU
+const WORKER_URL = 'https://cryptorewritev2.brobzrkv.workers.dev'; 
+
+// Atau kalau ingin langsung panggil Groq dari browser (tidak disarankan karena key terlihat):
+// const GROQ_API_KEY = 'gsk_xxxxxxxxxxxxxxxxxxxxxxxx'; // ← jangan commit ke git!
+
+function selectMode(mode) { /* sama */ }
+function selectPlatform(plat) { /* sama */ }
+function selectTone(el, tone) { /* sama */ }
+
+function buildSystemPrompt() {
+  // sama seperti sebelumnya
+  const toneMap = {
+    analyst: 'professional crypto market analyst — data-driven, precise, measured confidence',
+    alpha: 'bold alpha trader — confident, direct, slightly edgy but never reckless',
+    educator: 'clear crypto educator — accessible, informative, jargon explained naturally'
+  };
+  return `You are a ${toneMap[currentTone]} writing polished crypto content for social media.
+CRITICAL RULES:
+- Write ONLY in English. Sound like a native speaker.
+- NEVER use hashtags.
+- ONLY use ticker format like $BTC, $ETH...
+- No emojis unless specifically requested.
+- Include opinion AND risk.
+- Every post must have a hook on line 1.
+- Soft question or observation at the end.
+Respond ONLY with valid JSON.`;
+}
+
+function buildUserPrompt(rawText) {
+  // fungsi ini tetap sama persis
+  // ... (copy dari kode asli kamu)
+}
+
+async function generate() {
+  const raw = document.getElementById('rawInput').value.trim();
+  if (!raw) { showError('Please enter your raw analysis first.'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  const error = document.getElementById('errorMsg');
+  error.classList.remove('visible');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating...';
+
+  showLoadingResult();
+
+  try {
+    const response = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // Payload untuk Groq (Worker akan handle API key)
+        messages: [
+          { role: "system", content: buildSystemPrompt() },
+          { role: "user", content: buildUserPrompt(raw) }
+        ],
+        model: "llama-3.3-70b-versatile",   // ← ganti model sesuai keinginan
+        temperature: 0.7,
+        max_tokens: 2048,
+        response_format: { type: "json_object" }   // sangat membantu agar output JSON bersih
+      })
+    });
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+    const data = await response.json();
+
+    // Parsing response Groq / OpenAI-compatible
+    let text = '';
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      text = data.choices[0].message.content || '';
+    } else if (data.content) {
+      text = typeof data.content === 'string' ? data.content : JSON.stringify(data.content);
+    } else {
+      text = JSON.stringify(data);
+    }
+
+    text = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(text);
+
+    renderResults(parsed);
+  } catch (err) {
+    console.error(err);
+    showError('Error: ' + err.message + '. Cek Cloudflare Worker atau API key Groq.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Generate Content';
+  }
+}
+
+function showLoadingResult() {
+  const container = document.getElementById('resultsContainer');
+  const card = document.getElementById('resultCard');
+  const tabs = document.getElementById('resultTabs');
+  tabs.innerHTML = '';
+  card.innerHTML = `
+    <div class="result-toolbar">
+      <div class="result-meta"><span class="meta-badge badge-short">Processing</span></div>
+    </div>
+    <div class="result-content loading"><span class="spinner"></span>Rewriting your analysis...</div>
+    <div class="status-bar"><div class="status-dot"></div>Groq AI — generating...</div>
+  `;
+  container.classList.add('visible');
+}
+
+// Fungsi renderResults, switchTab, renderTab, copyContent, regenerateSingle, showError, escHtml
+// tetap sama seperti kode asli kamu (tidak perlu diubah)
+
+</script>
+</body>
+</html>
